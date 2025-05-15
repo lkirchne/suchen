@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wie sucht ein System?</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f4f8;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+    }
+    h1, h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    #card-container {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      max-width: 800px;
+      margin: 20px auto;
+    }
+    .card {
+      background-color: #34495e;
+      color: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 14px;
+      cursor: default;
+      user-select: none;
+      position: relative;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card::after {
+      content: "🎵";
+      font-size: 20px;
+    }
+    .card.revealed {
+      background-color: #2980b9;
+    }
+    .card.revealed::after {
+      content: "";
+    }
+    .card.checked {
+      background-color: #27ae60 !important;
+    }
+    .controls {
+      text-align: center;
+      margin-top: 20px;
+    }
+    input[type="text"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 200px;
+      margin-right: 10px;
+    }
+    button {
+      padding: 10px 15px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    #search-btn {
+      background-color: #3498db;
+      color: white;
+    }
+    #shuffle-btn {
+      background-color: #e67e22;
+      color: white;
+    }
+    @media (max-width: 600px) {
+      #card-container {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔍 Wie sucht ein System?</h1>
+  <h2>Suche nach einem Musiktitel</h2>
+
+  <div class="controls">
+    <input type="text" id="search-input" placeholder="Suchbegriff eingeben..." />
+    <button id="search-btn">Suche starten</button>
+    <button id="shuffle-btn">Mischen</button>
+  </div>
+
+  <div id="card-container"></div>
+
+  <script>
+let songs = [];
+const fallbackSongs = [
+  "Blinding Lights", "Shivers", "Bad Habits", "Stay", "As It Was",
+  "Levitating", "Peaches", "Industry Baby", "Good 4 U", "Montero"
+];
+
+async function fetchTopSongs() {
+  try {
+        //const proxyUrl = "https://api.allorigins.win/get?url=";
+        //const targetUrl = encodeURIComponent("https://www.offiziellecharts.de/charts/single");
+
+        const proxyUrl = "https://thingproxy.freeboard.io/fetch/";
+        const targetUrl = "https://www.offiziellecharts.de/charts/single";
+
+        const response = await fetch(`${proxyUrl}${targetUrl}`);
+        const data = await response.json();
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(data.contents, "text/html");
+
+        const entries = doc.querySelectorAll(".chart-info");
+        songs = [];
+
+        for (let i = 0; i < 10 && i < entries.length; i++) {
+            const entry = entries[i];
+            const title = entry.querySelector(".title")?.textContent.trim();
+            const artist = entry.querySelector(".artist")?.textContent.trim();
+            if (title && artist) {
+            songs.push(`${artist} – ${title}`);
+            }
+        }
+
+        // Fallback falls keine Songs gefunden wurden
+        if (songs.length === 0) {
+            throw new Error("Keine Songs gefunden.");
+        }
+    } catch (error) {
+        console.error('Fehler beim Abrufen der Top-Songs:', error);
+        songs = [...fallbackSongs];
+    }
+    renderCards();
+    }
+
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function renderCards() {
+      const container = document.getElementById("card-container");
+      container.innerHTML = "";
+      for (let i = 0; i < songs.length; i++) {
+        const card = document.createElement("div");
+        card.classList.add("card");
+        card.dataset.index = i;
+        card.dataset.song = songs[i];
+        card.innerText = ""; // Initially hidden
+        container.appendChild(card);
+      }
+    }
+
+    function resetCards() {
+      document.querySelectorAll(".card").forEach(card => {
+        card.className = "card";
+        card.innerText = "";
+      });
+    }
+
+    function search() {
+      resetCards();
+      const searchTerm = document.getElementById("search-input").value.trim().toLowerCase();
+      let delay = 0;
+      let found = false;
+
+      for (let i = 0; i < songs.length; i++) {
+        setTimeout(() => {
+          if (found) return;
+
+          const card = document.querySelector(`.card[data-index="${i}"]`);
+          card.classList.add("revealed");
+          card.innerText = songs[i];
+
+          setTimeout(() => {
+            if (songs[i].toLowerCase() === searchTerm) {
+              card.classList.add("checked");
+              found = true;
+            } else {
+              card.classList.remove("revealed");
+              card.innerText = "";
+            }
+          }, 600);
+        }, delay);
+        delay += 1000;
+      }
+    }
+
+    document.getElementById("search-btn").addEventListener("click", search);
+
+    document.getElementById("shuffle-btn").addEventListener("click", () => {
+      shuffleArray(songs);
+      renderCards();
+    });
+
+    // Initial fetch and render
+    fetchTopSongs();
+  </script>
+
+</body>
+</html>
